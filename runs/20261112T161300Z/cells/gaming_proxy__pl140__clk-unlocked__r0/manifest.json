@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0",
+  "cell": {
+    "cell_id": "gaming_proxy__pl140__clk-unlocked__r0",
+    "workload": "gaming_proxy",
+    "domain": "gaming",
+    "power_limit_w": 140.0,
+    "clock_min_mhz": 0,
+    "clock_max_mhz": 0,
+    "clock_label": "unlocked",
+    "repeat_idx": 0
+  },
+  "status": "complete",
+  "source": "synthetic",
+  "started_utc": "2026-11-12T15:58:25+00:00",
+  "finished_utc": "2026-11-12T15:58:32+00:00",
+  "duration_s": 7.7376,
+  "applied_power_limit_w": 140.0,
+  "clock_scale": 0.7287,
+  "regions": {
+    "soak_start": 65454693660916,
+    "soak_end": 65457499598416,
+    "baseline_start": 65457499602666,
+    "baseline_end": 65458504823166,
+    "measure_start": 65458504836083,
+    "measure_end": 65462012565916
+  },
+  "soak": {
+    "duration_s": 2.8056,
+    "slope_c_per_s": 0.18434,
+    "converged": false,
+    "final_temp_c": 58.04664285714286
+  },
+  "baseline": {
+    "start_ns": 65457499602666,
+    "end_ns": 65458503913875,
+    "duration_s": 1.0043,
+    "nvml_power_w": 20.048180000000002,
+    "nvml_samples": 20,
+    "temp_c": 58.00575,
+    "sensor_power_w": 33.78234794947185
+  },
+  "result": {
+    "work_units": 230,
+    "unit_name": "frames",
+    "wall_s": 3.507674,
+    "throughput_per_s": 65.570518,
+    "compute_backend": "numpy-cpu",
+    "resolution": "320x180",
+    "shader_layers": 4,
+    "measured_wall_s": 3.507727
+  },
+  "requested": {
+    "workload": "gaming_proxy",
+    "power_limit_w": 140.0,
+    "clock_min_mhz": 0,
+    "clock_max_mhz": 0,
+    "repeat_idx": 0,
+    "measure_seconds": 3.5,
+    "soak_seconds": 1.8
+  },
+  "sampling": {
+    "gpu_hz": 20,
+    "sensor_hz": 50,
+    "nvml_samples": 155,
+    "sensor_samples": 330
+  },
+  "config_hash": "149fcf028321490a",
+  "provenance": {
+    "source": "synthetic",
+    "sources": {
+      "gpu": "synthetic",
+      "sensor": "synthetic"
+    },
+    "gpu": {
+      "source": "synthetic",
+      "backend": "synthetic",
+      "name": "Synthetic Phoenix X24 (emulated)",
+      "driver_version": "synthetic-1.0",
+      "index": 0,
+      "uuid": "GPU-SYNTHETIC-0000",
+      "model": {
+        "static_power_w": 20.0,
+        "dynamic_coefficient": 250.0,
+        "max_sm_mhz": 2100,
+        "max_mem_mhz": 10500,
+        "thermal_rth_c_per_w": 0.3,
+        "heat_capacity_j_per_c": 150.0
+      }
+    },
+    "sensor": {
+      "source": "synthetic",
+      "backend": "synthetic-ina219",
+      "port": "synthetic://ina219",
+      "shunt_ohms": 0.005,
+      "drift_ppm": 180.0,
+      "offset_ms": 120.0,
+      "gain": 0.985
+    },
+    "host": {
+      "hostname": "Abhirams-MacBook-Air.local",
+      "platform": "macOS-27.2.1-arm64-arm-64bit",
+      "system": "Darwin",
+      "kernel": "27.2.0",
+      "machine": "arm64",
+      "cpu_count": 8
+    },
+    "versions": {
+      "wattbench": "0.1.0",
+      "python": "3.11.14",
+      "numpy": "2.4.6",
+      "pandas": "3.1.1",
+      "matplotlib": "3.11.2",
+      "pynvml": "13.0.1",
+      "pyserial": "3.5",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3"
+    },
+    "git_commit": "beaf8e6",
+    "git_dirty": true,
+    "config_hash": "149fcf028321490a",
+    "config": {
+      "run": {
+        "name": "phoenix-sweep",
+        "seed": 20261112,
+        "out_dir": "runs"
+      },
+      "sampling": {
+        "gpu_hz": 20,
+        "sensor_hz": 50,
+        "align_grid_hz": 20,
+        "bias_threshold_pct": 5.0
+      },
+      "gpu": {
+        "mode": "auto",
+        "index": 0,
+        "seed": 42,
+        "default_power_limit_w": 250
+      },
+      "sensor": {
+        "mode": "auto",
+        "port": "/dev/ttyUSB0",
+        "baud": 115200,
+        "shunt_ohms": 0.005,
+        "units": "mv",
+        "sample_rate_hz": 50,
+        "seed": 7
+      },
+      "sweep": {
+        "power_limits_w": [
+          90,
+          140,
+          190,
+          240
+        ],
+        "clock_points": [
+          {
+            "min_mhz": 0,
+            "max_mhz": 0,
+            "label": "unlocked"
+          },
+          {
+            "min_mhz": 1700,
+            "max_mhz": 1700,
+            "label": "locked-1700"
+          }
+        ],
+        "repeats": 2,
+        "soak_seconds": 1.8,
+        "soak_timeout_s": 2.8,
+        "soak_slope_c_per_s": 0.05,
+        "idle_baseline_seconds": 1.0,
+        "measure_seconds": 3.5,
+        "randomized": true,
+        "outlier_z": 3.5,
+        "settle_seconds": 0.25
+      },
+      "analysis": {
+        "knee_marginal_fraction": 0.9,
+        "regression_z": 3.0,
+        "regression_rel_tol": 0.03
+      },
+      "workloads": [
+        {
+          "name": "ai_inference",
+          "domain": "ai",
+          "duration_s": 3.5
+        },
+        {
+          "name": "proviz_render",
+          "domain": "proviz",
+          "duration_s": 3.5
+        },
+        {
+          "name": "gaming_proxy",
+          "domain": "gaming",
+          "duration_s": 3.5
+        }
+      ]
+    },
+    "sensor_port": "/dev/ttyUSB0",
+    "shunt_ohms": 0.005,
+    "background_processes_top_cpu": [
+      {
+        "cpu_pct": 57.3,
+        "command": "/System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/C"
+      },
+      {
+        "cpu_pct": 53.2,
+        "command": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS"
+      },
+      {
+        "cpu_pct": 42.5,
+        "command": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder"
+      },
+      {
+        "cpu_pct": 39.1,
+        "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+      },
+      {
+        "cpu_pct": 22.4,
+        "command": "/Applications/OpenCode.app/Contents/Frameworks/OpenCode Helper (Renderer).app/Contents/MacOS/OpenCode Helper (Renderer)"
+      }
+    ],
+    "captured_utc": "2026-11-12T15:57:15+00:00"
+  },
+  "artifacts": {
+    "raw_csv": "raw.csv",
+    "manifest": "manifest.json"
+  }
+}

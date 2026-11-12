@@ -19,7 +19,7 @@ from .align import (
     measurement_arrays,
 )
 from .config import load_config
-from .schema import SCHEMA_VERSION, write_results
+from .schema import SCHEMA_VERSION, load_results, write_results
 from .stats import aggregate_cell
 
 logger = logging.getLogger(__name__)
@@ -119,6 +119,209 @@ def _measurement_stats(
     }
 
 
+def _trapz_energy_j(t_ns: np.ndarray, p_w: np.ndarray) -> float:
+    """Trapezoidal energy over a sampled power trace, in joules."""
+    if len(t_ns) < 2:
+        return 0.0
+    t = (np.asarray(t_ns, dtype=np.float64) - float(t_ns[0])) / 1e9
+    return float(np.trapezoid(np.asarray(p_w, dtype=np.float64), t))
+
+
+def compute_efficiency(
+    df: pd.DataFrame,
+    manifest: dict[str, Any],
+    alignment: AlignmentResult,
+    nvml_idle_w: float | None,
+    sensor_idle_w: float | None,
+) -> dict[str, Any]:
+    """Work per joule and performance per watt from both power sources.
+
+    Energy is integrated with the trapezoid rule over the *measured* trace,
+    not inferred from a setpoint.  Idle-subtracted values are reported
+    alongside the raw ones so both conventions are auditable.
+    """
+    arr = measurement_arrays(df, manifest, alignment)
+    result = manifest.get("result", {})
+    work = float(result.get("work_units", 0))
+    throughput = float(result.get("throughput_per_s", 0.0))
+    duration = float(manifest.get("regions", {}).get("measure_end", 0) - manifest.get("regions", {}).get("measure_start", 0)) / 1e9
+    if duration <= 0:
+        duration = float(result.get("wall_s", 0.0))
+    e_n = _trapz_energy_j(arr["t_nvml_ns"], arr["p_nvml"])
+    e_s = _trapz_energy_j(arr["t_sensor_ns"], arr["p_sensor"])
+    mean_n = float(np.nanmean(arr["p_nvml"]))
+    mean_s = float(np.nanmean(arr["p_sensor"]))
+    eff_sub_n = max(e_n - (nvml_idle_w or 0.0) * duration, 0.0) if nvml_idle_w else None
+    eff_sub_s = max(e_s - (sensor_idle_w or 0.0) * duration, 0.0) if sensor_idle_w else None
+    return {
+        "work_units": int(work),
+        "unit_name": str(result.get("unit_name", "units")),
+        "energy_j_nvml": round(e_n, 6),
+        "energy_j_sensor": round(e_s, 6),
+        "work_per_joule_nvml": round(work / e_n, 8) if e_n > 0 else 0.0,
+        "work_per_joule_sensor": round(work / e_s, 8) if e_s > 0 else 0.0,
+        "perf_per_watt_nvml": round(throughput / mean_n, 8) if mean_n > 0 else 0.0,
+        "perf_per_watt_sensor": round(throughput / mean_s, 8) if mean_s > 0 else 0.0,
+        "idle_subtracted_energy_j_nvml": None if eff_sub_n is None else round(eff_sub_n, 6),
+        "idle_subtracted_energy_j_sensor": None if eff_sub_s is None else round(eff_sub_s, 6),
+        "idle_subtracted_work_per_joule_nvml": (
+            round(work / eff_sub_n, 8) if eff_sub_n and eff_sub_n > 0 else None
+        ),
+        "idle_subtracted_work_per_joule_sensor": (
+            round(work / eff_sub_s, 8) if eff_sub_s and eff_sub_s > 0 else None
+        ),
+        "idle_power_nvml_w": nvml_idle_w,
+        "idle_power_sensor_w": sensor_idle_w,
+        "mean_power_nvml_w": round(mean_n, 6),
+        "mean_power_sensor_w": round(mean_s, 6),
+        "duration_s": round(duration, 6),
+    }
+
+
+def knee(cells: list[dict[str, Any]], marginal_fraction: float = 0.9) -> dict[str, Any]:
+    """Fit throughput vs power-limit and locate the efficiency knee.
+
+    A quadratic is fit to the measured (power-limit, throughput) points for a
+    single workload/clock family.  The marginal return dT/dP is evaluated at
+    each tested point; the knee is the first point where it falls below
+    ``marginal_fraction`` of the peak marginal return.  The max perf/W point
+    is reported separately because it is usually at a lower power limit.
+    """
+    points = sorted(cells, key=lambda c: float(c["power_limit_w"]))
+    pts = [c for c in points if c["aggregates"].get("throughput_per_s", {}).get("mean") is not None]
+    if len(pts) < 3:
+        raise ValueError("knee analysis requires at least three power-limit points")
+    x = np.array([float(c["power_limit_w"]) for c in pts])
+    y = np.array([float(c["aggregates"]["throughput_per_s"]["mean"]) for c in pts])
+    p_meas = np.array([float(c["aggregates"]["nvml_power_w"]["mean"]) for c in pts])
+    perf_w = y / np.maximum(p_meas, 1e-9)
+    coef = np.polyfit(x, y, 2)
+    deriv = np.gradient(np.polyval(coef, x), x)
+    peak_deriv = float(np.max(deriv))
+    if not np.isfinite(peak_deriv) or peak_deriv <= 0:
+        deriv = np.gradient(y, x)
+        peak_deriv = float(np.max(deriv))
+    threshold = marginal_fraction * peak_deriv
+    knee_idx = 0
+    for i in range(1, len(pts)):
+        if deriv[i] < threshold:
+            knee_idx = i
+            break
+    else:
+        knee_idx = int(np.argmax(y))
+    peak_idx = int(np.argmax(y))
+    best_idx = int(np.argmax(perf_w))
+    method = (
+        f"quadratic fit T(P); first point with marginal dT/dP below "
+        f"{marginal_fraction:.2f} x peak marginal"
+    )
+    peak_throughput = float(y[peak_idx])
+    peak_plimit = float(x[peak_idx])
+    return {
+        "workload": cells[0]["workload"],
+        "clock_label": cells[0]["clock_label"],
+        "method": method,
+        "power_limit_w": float(x[knee_idx]),
+        "power_w": float(p_meas[knee_idx]),
+        "throughput_per_s": float(y[knee_idx]),
+        "perf_per_watt": float(perf_w[knee_idx]),
+        "peak_power_limit_w": peak_plimit,
+        "peak_power_w": float(p_meas[peak_idx]),
+        "peak_throughput_per_s": peak_throughput,
+        "peak_perf_per_watt": float(perf_w[peak_idx]),
+        "max_efficiency_power_limit_w": float(x[best_idx]),
+        "max_efficiency_power_w": float(p_meas[best_idx]),
+        "max_efficiency_throughput_pct": round(100.0 * y[best_idx] / peak_throughput, 3),
+        "throughput_pct_of_peak": round(100.0 * y[knee_idx] / peak_throughput, 3),
+        "power_pct_of_peak": round(100.0 * x[knee_idx] / peak_plimit, 3),
+        "marginal_fraction": marginal_fraction,
+    }
+
+
+def _resolve_results(path: str | Path) -> tuple[Path, Any]:
+    p = Path(path)
+    candidates = [p / "results.json", p / "results" / "results.json", p]
+    for cand in candidates:
+        if cand.is_file():
+            return cand, load_results(cand)
+    raise AnalysisError(f"no results.json found under {p} (run 'wattbench analyze' first)")
+
+
+def regression_compare(
+    baseline: str | Path,
+    candidate: str | Path,
+    z: float = 3.0,
+    rel_tol: float = 0.03,
+) -> dict[str, Any]:
+    """Compare per-cell throughput, with a tolerance from measured variance.
+
+    The tolerance is ``max(z * combined_sem, rel_tol * |baseline mean|)`` where
+    the standard error of the difference comes from each sweep's own repeat
+    stdev.  The relative floor prevents physically meaningless failures when
+    the repeat noise rounds to zero (e.g. a locked-clock synthetic cell).
+    """
+    baseline_path, base = _resolve_results(baseline)
+    candidate_path, cand = _resolve_results(candidate)
+    base_cells = {c.cell_id: c for c in base.cells}
+    cand_cells = {c.cell_id: c for c in cand.cells}
+    rows: list[dict[str, Any]] = []
+    worst: dict[str, Any] | None = None
+    for cell_id in sorted(set(base_cells) & set(cand_cells)):
+        b = base_cells[cell_id]
+        c = cand_cells[cell_id]
+        bstat = b.aggregates.get("throughput_per_s")
+        cstat = c.aggregates.get("throughput_per_s")
+        if bstat is None or cstat is None or bstat.mean is None or cstat.mean is None:
+            continue
+        b_mean, c_mean = float(bstat.mean), float(cstat.mean)
+        b_sd = float(bstat.stdev or 0.0)
+        c_sd = float(cstat.stdev or 0.0)
+        b_n = max(int(bstat.n), 1)
+        c_n = max(int(cstat.n), 1)
+        combined_sem = float(np.sqrt(b_sd**2 / b_n + c_sd**2 / c_n))
+        tol = max(z * combined_sem, rel_tol * abs(b_mean))
+        delta = c_mean - b_mean
+        delta_pct = 100.0 * delta / b_mean if b_mean else float("nan")
+        passed = abs(delta) <= tol
+        b_pwr = b.aggregates.get("nvml_power_w")
+        c_pwr = c.aggregates.get("nvml_power_w")
+        row = {
+            "cell_id": cell_id,
+            "baseline_throughput": round(b_mean, 6),
+            "candidate_throughput": round(c_mean, 6),
+            "delta": round(delta, 6),
+            "delta_pct": round(delta_pct, 4),
+            "tolerance": round(tol, 6),
+            "stdev_baseline": round(b_sd, 6),
+            "stdev_candidate": round(c_sd, 6),
+            "power_delta_w": (
+                round(float(c_pwr.mean) - float(b_pwr.mean), 6)
+                if b_pwr and c_pwr and b_pwr.mean is not None and c_pwr.mean is not None
+                else None
+            ),
+            "verdict": "PASS" if passed else "FAIL",
+        }
+        rows.append(row)
+        if not passed and (worst is None or abs(delta) > abs(worst["delta"])):
+            worst = row
+    missing = sorted(set(base_cells) - set(cand_cells))
+    overall = "PASS" if rows and all(r["verdict"] == "PASS" for r in rows) and not missing else "FAIL"
+    return {
+        "baseline": str(baseline_path),
+        "candidate": str(candidate_path),
+        "baseline_source": base.run.source,
+        "candidate_source": cand.run.source,
+        "z": z,
+        "rel_tol": rel_tol,
+        "cells_compared": len(rows),
+        "cells_missing": missing,
+        "failures": [r for r in rows if r["verdict"] == "FAIL"],
+        "worst": worst,
+        "overall": overall,
+        "rows": rows,
+    }
+
+
 def _group_key(manifest: dict[str, Any]) -> tuple[str, float, str, int, int]:
     cell = manifest["cell"]
     return (
@@ -154,11 +357,14 @@ def analyze_run(
     grid_hz = float(sampling.get("align_grid_hz", 20.0))
     bias_threshold = float(sampling.get("bias_threshold_pct", 5.0))
     outlier_z = float(sweep_cfg.get("outlier_z", 3.5))
+    analysis_cfg = cfg_dict.get("analysis", {})
+    knee_fraction = float(analysis_cfg.get("knee_marginal_fraction", 0.9))
     if config_path:
         cfg = load_config(config_path)
         grid_hz = cfg.sampling.align_grid_hz
         bias_threshold = cfg.sampling.bias_threshold_pct
         outlier_z = cfg.sweep.outlier_z
+        knee_fraction = cfg.analysis.knee_marginal_fraction
 
     cell_dirs = discover_cells(run_path)
     logger.info("analyzing %d repeat cells from %s", len(cell_dirs), run_path)
@@ -190,6 +396,7 @@ def analyze_run(
                 continue
             mstats = _measurement_stats(df, manifest, alignment)
             nvml_base, sensor_base = _baseline_means(df, manifest, alignment)
+            eff = compute_efficiency(df, manifest, alignment, nvml_base, sensor_base)
             result = manifest.get("result", {})
             record = {
                 "repeat_idx": int(manifest["cell"]["repeat_idx"]),
@@ -201,6 +408,7 @@ def analyze_run(
                 "nvml_baseline_w": nvml_base,
                 "sensor_baseline_w": sensor_base,
                 "raw_csv": str((cell_dir / "raw.csv").relative_to(run_path)),
+                "efficiency": eff,
                 "alignment": alignment.to_dict(),
             }
             repeats.append(record)
@@ -213,6 +421,40 @@ def analyze_run(
             logger.error("no usable repeats for %s", key)
             continue
         agg = aggregate_cell(repeats, z_threshold=outlier_z)
+        kept_ids = {r["cell_id"] for r in repeats} - {
+            o["cell_id"] for o in agg["rejected_outliers"]
+        }
+        eff_records = [r["efficiency"] for r in repeats if r["cell_id"] in kept_ids and r.get("efficiency")]
+        cell_eff = None
+        if eff_records:
+            cell_eff = {
+                "work_units": round(float(np.mean([e["work_units"] for e in eff_records]))),
+                "unit_name": eff_records[0]["unit_name"],
+                **{
+                    k: (
+                        round(float(np.mean([e[k] for e in eff_records if e.get(k) is not None])), 8)
+                        if any(e.get(k) is not None for e in eff_records)
+                        else None
+                    )
+                    for k in (
+                        "energy_j_nvml",
+                        "energy_j_sensor",
+                        "work_per_joule_nvml",
+                        "work_per_joule_sensor",
+                        "perf_per_watt_nvml",
+                        "perf_per_watt_sensor",
+                        "idle_subtracted_energy_j_nvml",
+                        "idle_subtracted_energy_j_sensor",
+                        "idle_subtracted_work_per_joule_nvml",
+                        "idle_subtracted_work_per_joule_sensor",
+                        "idle_power_nvml_w",
+                        "idle_power_sensor_w",
+                        "mean_power_nvml_w",
+                        "mean_power_sensor_w",
+                        "duration_s",
+                    )
+                },
+            }
         cell = {
             "cell_id": _base_cell_id(entries[0][1]),
             "workload": entries[0][1]["cell"]["workload"],
@@ -227,7 +469,7 @@ def analyze_run(
             "rejected_outliers": agg["rejected_outliers"],
             "aggregates": agg["aggregates"],
             "per_repeat": repeats,
-            "efficiency": None,
+            "efficiency": cell_eff,
             "knee": None,
         }
         cells.append(cell)
@@ -254,6 +496,23 @@ def analyze_run(
 
     if not cells:
         raise AnalysisError("analysis produced no cells; every alignment failed")
+
+    knee_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for cell in cells:
+        knee_groups.setdefault((cell["workload"], cell["clock_label"]), []).append(cell)
+    knees: list[dict[str, Any]] = []
+    for group_key in sorted(knee_groups):
+        group = knee_groups[group_key]
+        if len(group) < 3:
+            continue
+        try:
+            k = knee(group, marginal_fraction=knee_fraction)
+        except (ValueError, np.linalg.LinAlgError) as exc:
+            logger.warning("knee fit failed for %s: %s", group_key, exc)
+            continue
+        knees.append(k)
+        for cell in group:
+            cell["knee"] = k
 
     offset_vals = np.array([a.offset_ms for a in all_alignments])
     drift_vals = np.array([a.drift_ppm for a in all_alignments])
@@ -292,6 +551,11 @@ def analyze_run(
         "provenance": provenance,
         "alignment": alignment_summary,
         "cells": cells,
+        "analysis": {
+            "knee_marginal_fraction": knee_fraction,
+            "knees": knees,
+            "cv_power_nvml": _cv_summary(cells),
+        },
     }
 
     out_dir = Path(out) if out else Path("results")
@@ -325,6 +589,12 @@ def analyze_run(
         f"CV power (NVML): min {cv['min']:.2f}%  median {cv['median']:.2f}%  "
         f"max {cv['max']:.2f}%"
     )
+    for k in knees:
+        print(
+            f"knee {k['workload']:14s} {k['clock_label']:12s} "
+            f"{k['power_limit_w']:.0f} W: {k['throughput_pct_of_peak']:.1f}% throughput "
+            f"at {k['power_pct_of_peak']:.1f}% power limit"
+        )
     return 0
 
 
@@ -376,3 +646,46 @@ def _write_cells_csv(validated: Any, path: Path) -> None:
         rows.append(row)
     df = pd.DataFrame(rows).sort_values(["workload", "clock_label", "power_limit_w"])
     df.to_csv(path, index=False, float_format="%.6f")
+
+
+def compare_runs(
+    baseline: str | Path,
+    candidate: str | Path,
+    rel_tol: float | None = None,
+) -> int:
+    """CLI adapter: print the regression table and return 1 on any FAIL."""
+    _, cand = _resolve_results(candidate)
+    cfg = cand.provenance.get("config", {}).get("analysis", {})
+    result = regression_compare(
+        baseline,
+        candidate,
+        z=float(cfg.get("regression_z", 3.0)),
+        rel_tol=float(rel_tol if rel_tol is not None else cfg.get("regression_rel_tol", 0.03)),
+    )
+    print(
+        f"baseline:  {result['baseline']} ({result['baseline_source']})\n"
+        f"candidate: {result['candidate']} ({result['candidate_source']})\n"
+        f"tolerance: max(z={result['z']:.1f} * combined SEM, "
+        f"{100 * result['rel_tol']:.1f}% of baseline)\n"
+    )
+    header = f"{'cell':54s} {'base':>10s} {'cand':>10s} {'delta':>9s} {'tol':>8s}  verdict"
+    print(header)
+    print("-" * len(header))
+    for row in result["rows"]:
+        print(
+            f"{row['cell_id'][:54]:54s} {row['baseline_throughput']:10.3f} "
+            f"{row['candidate_throughput']:10.3f} {row['delta']:+9.3f} "
+            f"{row['tolerance']:8.3f}  {row['verdict']}"
+        )
+    if result["cells_missing"]:
+        print(f"\nmissing cells: {', '.join(result['cells_missing'])}")
+    if result["failures"]:
+        print(f"\n{len(result['failures'])} failing cell(s); worst:")
+        worst = result["worst"]
+        if worst:
+            print(
+                f"  {worst['cell_id']}: {worst['delta']:+.3f} "
+                f"({worst['delta_pct']:+.2f}%) exceeds {worst['tolerance']:.3f}"
+            )
+    print(f"\noverall: {result['overall']} ({result['cells_compared']} cells compared)")
+    return 0 if result["overall"] == "PASS" else 1

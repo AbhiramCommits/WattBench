@@ -111,6 +111,7 @@ class Knee(BaseModel):
     peak_perf_per_watt: float
     max_efficiency_power_limit_w: float
     max_efficiency_power_w: float
+    max_efficiency_throughput_pct: float
     throughput_pct_of_peak: float
     power_pct_of_peak: float
     marginal_fraction: float
@@ -133,6 +134,7 @@ class RepeatRecord(BaseModel):
     nvml_baseline_w: float | None = None
     sensor_baseline_w: float | None = None
     raw_csv: str | None = None
+    efficiency: Efficiency | None = None
     alignment: AlignmentMetrics
 
 

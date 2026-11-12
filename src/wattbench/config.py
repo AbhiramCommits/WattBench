@@ -82,7 +82,7 @@ class SweepSection:
 
 @dataclass
 class AnalysisSection:
-    knee_marginal_fraction: float = 0.25
+    knee_marginal_fraction: float = 0.9
     regression_z: float = 3.0
     regression_rel_tol: float = 0.03
 

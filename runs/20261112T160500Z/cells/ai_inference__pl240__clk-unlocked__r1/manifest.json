@@ -1,0 +1,232 @@
+{
+  "schema_version": "1.0",
+  "cell": {
+    "cell_id": "ai_inference__pl240__clk-unlocked__r1",
+    "workload": "ai_inference",
+    "domain": "ai",
+    "power_limit_w": 240.0,
+    "clock_min_mhz": 0,
+    "clock_max_mhz": 0,
+    "clock_label": "unlocked",
+    "repeat_idx": 1
+  },
+  "status": "complete",
+  "source": "synthetic",
+  "started_utc": "2026-11-12T15:57:04+00:00",
+  "finished_utc": "2026-11-12T15:57:12+00:00",
+  "duration_s": 7.7266,
+  "applied_power_limit_w": 240.0,
+  "clock_scale": 1.0,
+  "regions": {
+    "soak_start": 65374521442833,
+    "soak_end": 65377322963791,
+    "baseline_start": 65377322972291,
+    "baseline_end": 65378327403125,
+    "measure_start": 65378327411916,
+    "measure_end": 65381830548125
+  },
+  "soak": {
+    "duration_s": 2.8009,
+    "slope_c_per_s": 0.64223,
+    "converged": false,
+    "final_temp_c": 63.648877192982454
+  },
+  "baseline": {
+    "start_ns": 65377322972291,
+    "end_ns": 65378326773708,
+    "duration_s": 1.0038,
+    "nvml_power_w": 20.054650000000002,
+    "nvml_samples": 20,
+    "temp_c": 64.1217,
+    "sensor_power_w": 44.235727242076436
+  },
+  "result": {
+    "work_units": 210,
+    "unit_name": "inferences",
+    "wall_s": 3.503083,
+    "throughput_per_s": 59.947189,
+    "compute_backend": "numpy-cpu",
+    "batch": 32,
+    "features": 768,
+    "layers": 3,
+    "measured_wall_s": 3.503134
+  },
+  "requested": {
+    "workload": "ai_inference",
+    "power_limit_w": 240.0,
+    "clock_min_mhz": 0,
+    "clock_max_mhz": 0,
+    "repeat_idx": 1,
+    "measure_seconds": 3.5,
+    "soak_seconds": 1.8
+  },
+  "sampling": {
+    "gpu_hz": 20,
+    "sensor_hz": 50,
+    "nvml_samples": 155,
+    "sensor_samples": 328
+  },
+  "config_hash": "149fcf028321490a",
+  "provenance": {
+    "source": "synthetic",
+    "sources": {
+      "gpu": "synthetic",
+      "sensor": "synthetic"
+    },
+    "gpu": {
+      "source": "synthetic",
+      "backend": "synthetic",
+      "name": "Synthetic Phoenix X24 (emulated)",
+      "driver_version": "synthetic-1.0",
+      "index": 0,
+      "uuid": "GPU-SYNTHETIC-0000",
+      "model": {
+        "static_power_w": 20.0,
+        "dynamic_coefficient": 250.0,
+        "max_sm_mhz": 2100,
+        "max_mem_mhz": 10500,
+        "thermal_rth_c_per_w": 0.3,
+        "heat_capacity_j_per_c": 150.0
+      }
+    },
+    "sensor": {
+      "source": "synthetic",
+      "backend": "synthetic-ina219",
+      "port": "synthetic://ina219",
+      "shunt_ohms": 0.005,
+      "drift_ppm": 180.0,
+      "offset_ms": 120.0,
+      "gain": 0.985
+    },
+    "host": {
+      "hostname": "Abhirams-MacBook-Air.local",
+      "platform": "macOS-27.2.1-arm64-arm-64bit",
+      "system": "Darwin",
+      "kernel": "27.2.0",
+      "machine": "arm64",
+      "cpu_count": 8
+    },
+    "versions": {
+      "wattbench": "0.1.0",
+      "python": "3.11.14",
+      "numpy": "2.4.6",
+      "pandas": "3.1.1",
+      "matplotlib": "3.11.2",
+      "pynvml": "13.0.1",
+      "pyserial": "3.5",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3"
+    },
+    "git_commit": "beaf8e6",
+    "git_dirty": true,
+    "config_hash": "149fcf028321490a",
+    "config": {
+      "run": {
+        "name": "phoenix-sweep",
+        "seed": 20261112,
+        "out_dir": "runs"
+      },
+      "sampling": {
+        "gpu_hz": 20,
+        "sensor_hz": 50,
+        "align_grid_hz": 20,
+        "bias_threshold_pct": 5.0
+      },
+      "gpu": {
+        "mode": "auto",
+        "index": 0,
+        "seed": 42,
+        "default_power_limit_w": 250
+      },
+      "sensor": {
+        "mode": "auto",
+        "port": "/dev/ttyUSB0",
+        "baud": 115200,
+        "shunt_ohms": 0.005,
+        "units": "mv",
+        "sample_rate_hz": 50,
+        "seed": 7
+      },
+      "sweep": {
+        "power_limits_w": [
+          90,
+          140,
+          190,
+          240
+        ],
+        "clock_points": [
+          {
+            "min_mhz": 0,
+            "max_mhz": 0,
+            "label": "unlocked"
+          },
+          {
+            "min_mhz": 1700,
+            "max_mhz": 1700,
+            "label": "locked-1700"
+          }
+        ],
+        "repeats": 2,
+        "soak_seconds": 1.8,
+        "soak_timeout_s": 2.8,
+        "soak_slope_c_per_s": 0.05,
+        "idle_baseline_seconds": 1.0,
+        "measure_seconds": 3.5,
+        "randomized": true,
+        "outlier_z": 3.5,
+        "settle_seconds": 0.25
+      },
+      "analysis": {
+        "knee_marginal_fraction": 0.9,
+        "regression_z": 3.0,
+        "regression_rel_tol": 0.03
+      },
+      "workloads": [
+        {
+          "name": "ai_inference",
+          "domain": "ai",
+          "duration_s": 3.5
+        },
+        {
+          "name": "proviz_render",
+          "domain": "proviz",
+          "duration_s": 3.5
+        },
+        {
+          "name": "gaming_proxy",
+          "domain": "gaming",
+          "duration_s": 3.5
+        }
+      ]
+    },
+    "sensor_port": "/dev/ttyUSB0",
+    "shunt_ohms": 0.005,
+    "background_processes_top_cpu": [
+      {
+        "cpu_pct": 50.1,
+        "command": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS"
+      },
+      {
+        "cpu_pct": 37.3,
+        "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+      },
+      {
+        "cpu_pct": 13.7,
+        "command": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      },
+      {
+        "cpu_pct": 12.4,
+        "command": "/Users/abhiramkasireddi/Library/Application Support/ai.opencode.desktop/cli/2.2.7-arm64/opencode-cli"
+      },
+      {
+        "cpu_pct": 9.0,
+        "command": "/Applications/OpenCode.app/Contents/Frameworks/OpenCode Helper.app/Contents/MacOS/OpenCode Helper"
+      }
+    ],
+    "captured_utc": "2026-11-12T15:50:59+00:00"
+  },
+  "artifacts": {
+    "raw_csv": "raw.csv",
+    "manifest": "manifest.json"
+  }
+}
