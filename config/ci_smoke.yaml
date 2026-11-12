@@ -1,0 +1,50 @@
+# Small end-to-end matrix for CI: three power points so the knee analysis runs.
+run:
+  name: ci-smoke
+  seed: 1234
+  out_dir: runs
+
+sampling:
+  gpu_hz: 30
+  sensor_hz: 50
+  align_grid_hz: 20
+  bias_threshold_pct: 10.0
+
+gpu:
+  mode: synthetic
+  index: 0
+  seed: 42
+  default_power_limit_w: 240
+
+sensor:
+  mode: synthetic
+  port: /dev/ttyUSB0
+  baud: 115200
+  shunt_ohms: 0.005
+  units: mv
+  sample_rate_hz: 50
+  seed: 7
+
+sweep:
+  power_limits_w: [100, 160, 220]
+  clock_points:
+    - {min_mhz: 0, max_mhz: 0, label: unlocked}
+  repeats: 1
+  soak_seconds: 0.5
+  soak_timeout_s: 0.9
+  soak_slope_c_per_s: 0.2
+  idle_baseline_seconds: 0.6
+  measure_seconds: 1.2
+  randomized: true
+  outlier_z: 3.5
+  settle_seconds: 0.1
+
+analysis:
+  knee_marginal_fraction: 0.9
+  regression_z: 3.0
+  regression_rel_tol: 0.05
+
+workloads:
+  - {name: ai_inference, domain: ai, duration_s: 1.2}
+  - {name: proviz_render, domain: proviz, duration_s: 1.2}
+  - {name: gaming_proxy, domain: gaming, duration_s: 1.2}
