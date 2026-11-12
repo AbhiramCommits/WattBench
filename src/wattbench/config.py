@@ -104,13 +104,16 @@ class RigConfig:
     )
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the config as plain nested dictionaries."""
         return asdict(self)
 
     def config_hash(self) -> str:
+        """Return a stable short hash of the full configuration."""
         canonical = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
     def validate(self) -> None:
+        """Validate cross-field constraints, raising ValueError on failure."""
         if self.sweep.repeats < 1:
             raise ValueError("sweep.repeats must be >= 1")
         if not self.sweep.power_limits_w:
@@ -133,7 +136,7 @@ class RigConfig:
             raise ValueError("at least one workload is required")
 
 
-def _build(cls: type, data: dict[str, Any] | None) -> Any:
+def _build(cls: type[Any], data: dict[str, Any] | None) -> Any:
     if not data:
         return cls()
     allowed = set(cls.__dataclass_fields__)

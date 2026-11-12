@@ -72,6 +72,12 @@ def test_tiny_sweep_analyze_report(tmp_path: Path, monkeypatch) -> None:
     # Top-level mirror written from the working directory.
     assert (tmp_path / "results" / "report.md").exists()
 
+    # --no-mirror writes only into the run's own results directory.
+    (tmp_path / "results" / "report.md").unlink()
+    assert main(["report", str(run_dir), "--no-mirror"]) == 0
+    assert not (tmp_path / "results" / "report.md").exists()
+    assert (run_dir / "results" / "report.md").exists()
+
     self_cmp = main(
         ["compare", "--baseline", str(run_dir), "--candidate", str(run_dir)]
     )

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
+import signal
 import sys
 from typing import TYPE_CHECKING
 
@@ -76,6 +78,7 @@ def cmd_devices(args: argparse.Namespace) -> int:
 
 
 def cmd_sweep(args: argparse.Namespace) -> int:
+    """Run a sweep from parsed CLI arguments."""
     from .runner import run_sweep
 
     cfg = _load(args)
@@ -84,24 +87,32 @@ def cmd_sweep(args: argparse.Namespace) -> int:
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
+    """Analyze a run directory from parsed CLI arguments."""
     from .analysis import analyze_run
 
     return analyze_run(args.run_dir, out=args.out, config_path=args.config)
 
 
 def cmd_report(args: argparse.Namespace) -> int:
+    """Render the stakeholder report from parsed CLI arguments."""
     from .report import build_report
 
-    return build_report(args.run_dir, baseline=getattr(args, "baseline", None))
+    return build_report(
+        args.run_dir,
+        baseline=getattr(args, "baseline", None),
+        write_top_level=not getattr(args, "no_mirror", False),
+    )
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
+    """Compare two runs from parsed CLI arguments."""
     from .analysis import compare_runs
 
     return compare_runs(args.baseline, args.candidate, rel_tol=args.rel_tol)
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Construct the argparse command tree."""
     parser = argparse.ArgumentParser(
         prog="wattbench",
         description="GPU performance-per-watt measurement with cross-validated power sensing",
@@ -131,6 +142,11 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("report", help="render markdown + self-contained HTML report")
     r.add_argument("run_dir", help="path to runs/<timestamp>")
     r.add_argument("--baseline", default=None, help="optional baseline run for regression section")
+    r.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help="do not copy the report into the top-level results/ directory",
+    )
     r.set_defaults(func=cmd_report)
 
     c = sub.add_parser("compare", help="compare a candidate run against a baseline run")
@@ -141,7 +157,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _handle_sigterm(signum: int, frame: object) -> None:
+    """Translate SIGTERM into KeyboardInterrupt so cleanup blocks always run."""
+    raise KeyboardInterrupt
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run the CLI and return a process exit code."""
+    with contextlib.suppress(ValueError, OSError):  # non-main thread / unsupported
+        signal.signal(signal.SIGTERM, _handle_sigterm)
     parser = build_parser()
     args = parser.parse_args(argv)
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -159,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.verbose:
             logger.exception("command failed")
         else:
-            logger.error("%s", exc)
+            logger.error("error: %s", exc)
         return 2
 
 

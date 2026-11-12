@@ -31,7 +31,7 @@ Mode = Literal["auto", "hardware", "synthetic"]
 
 
 def get_gpu(
-    mode: Mode = "auto",
+    mode: str = "auto",
     index: int = 0,
     seed: int = 42,
     power_limit_w: float = 250.0,
@@ -63,7 +63,7 @@ def get_gpu(
 
 
 def get_sensor(
-    mode: Mode = "auto",
+    mode: str = "auto",
     gpu: GpuDevice | None = None,
     port: str = "/dev/ttyUSB0",
     baud: int = 115200,

@@ -17,10 +17,12 @@ _REGISTRY: dict[str, type[Workload]] = {
 
 
 def available_workloads() -> list[str]:
+    """Return the names of registered workloads."""
     return sorted(_REGISTRY)
 
 
 def get_workload(name: str, **kwargs: Any) -> Workload:
+    """Instantiate a workload by name."""
     try:
         cls = _REGISTRY[name]
     except KeyError as exc:

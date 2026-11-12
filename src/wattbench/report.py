@@ -222,6 +222,7 @@ def _provenance_section(doc: Any) -> str:
 
 
 def build_markdown(doc: Any, run_dir: Path, plots: dict[str, Path], baseline: str | None) -> str:
+    """Build the stakeholder report body as Markdown."""
     summaries = [_workload_summary(doc, wl) for wl in sorted({c.workload for c in doc.cells})]
     source_note = (
         "**Measurement source: synthetic.** These numbers were produced by WattBench's "
@@ -312,6 +313,7 @@ def markdown_to_html(md: str, base_dir: Path) -> str:
     table: list[str] = []
 
     def flush_table() -> None:
+        """Emit the buffered Markdown table as HTML."""
         nonlocal table
         if not table:
             return
@@ -396,7 +398,11 @@ strong { color: #102a43; }
 """
 
 
-def build_report(run_dir: str | Path, baseline: str | None = None) -> int:
+def build_report(
+    run_dir: str | Path,
+    baseline: str | None = None,
+    write_top_level: bool = True,
+) -> int:
     """Render ``report.md`` and a self-contained ``report.html``."""
     run_path = Path(run_dir)
     try:
@@ -421,7 +427,7 @@ def build_report(run_dir: str | Path, baseline: str | None = None) -> int:
     (run_results_dir / "report.html").write_text(html_doc, encoding="utf-8")
 
     top = Path("results")
-    if top.resolve() != run_results_dir.resolve():
+    if write_top_level and top.resolve() != run_results_dir.resolve():
         top.mkdir(parents=True, exist_ok=True)
         (top / "report.md").write_text(md, encoding="utf-8")
         (top / "report.html").write_text(html_doc, encoding="utf-8")

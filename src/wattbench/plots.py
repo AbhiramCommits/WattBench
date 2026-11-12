@@ -297,7 +297,7 @@ def plot_all(run_dir: str | Path, doc: Any | None = None, out_dir: str | Path | 
         doc = load_results(_results_path(run_path))
     out = Path(out_dir) if out_dir else run_path / "results" / "plots"
     out.mkdir(parents=True, exist_ok=True)
-    created = {
+    created: dict[str, Any] = {
         "perf": plot_perf_vs_power(doc, out),
         "efficiency": plot_perf_per_watt(doc, out),
         "scatter": plot_power_scatter(run_path, doc, out),

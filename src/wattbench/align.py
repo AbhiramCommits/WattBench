@@ -58,6 +58,7 @@ class AlignmentResult:
     window: str = "measurement"
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the alignment result as a plain dictionary."""
         return asdict(self)
 
 
@@ -141,6 +142,7 @@ def estimate_offset_drift(
     est_hz = max(float(estimation_hz), float(grid_hz))
 
     def evaluate(drift_values: np.ndarray, offset_values: np.ndarray) -> tuple[float, float, float]:
+        """Search a drift set and all lags, returning the best correlation triple."""
         best = (-2.0, 0.0, 0.0)
         offset_values = np.asarray(offset_values, dtype=np.float64)
         for drift in drift_values:

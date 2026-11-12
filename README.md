@@ -61,7 +61,7 @@ Measurement confidence from the same run:
   flag threshold.
 - Regression check against a second full sweep: **PASS**, 24/24 cells, largest
   throughput delta **0.037 units/s (0.084%)**.
-- Tests: **43 passed**, **73% coverage** (`pytest -q --cov=wattbench`).
+- Tests: **45 passed**, **73% coverage** (`pytest -q --cov=wattbench`).
 
 The full generated artifacts are committed under
 [`runs/20261112T160500Z`](runs/20261112T160500Z) and
@@ -129,6 +129,7 @@ cosmetic.
 ```
 runs/<run-id>/
   run.json                     matrix, provenance, counts, source
+  run.log                      full sweep log (INFO, or DEBUG with --verbose)
   config.yaml                  exact config used (hash recorded)
   cells/<cell-id>/
     raw.csv                    NVML + sensor samples with region labels
@@ -191,6 +192,23 @@ wattbench compare --baseline runs/<id-a> --candidate runs/<id-b>
 `analyze` validates the versioned results schema on write and fails loudly on a
 violation. `compare` prints a per-cell regression table and exits non-zero on
 any FAIL verdict. Exit codes are CI-friendly.
+
+### Make targets
+
+```bash
+make install     # create .venv and install package + dev tools
+make lint        # ruff check .
+make typecheck   # mypy src/wattbench
+make test        # pytest with coverage
+make sweep       # full config/rig.yaml sweep into runs/<UTC timestamp>
+make report      # report for OUT=... (defaults to the latest runs/2* directory)
+make demo        # fast end-to-end: devices -> sweep -> analyze -> report -> compare
+```
+
+`make demo` uses `config/ci_smoke.yaml` (nine cells) so it finishes in under a
+minute and does not overwrite the committed full-sweep results. It passes
+`--no-mirror` to the report so the top-level `results/` stays pinned to the
+documented full sweep. Use `make sweep` for the full matrix.
 
 ### Point it at a real rig
 
@@ -267,7 +285,9 @@ break a live 12 V rail by hand. Full details and safety notes:
   are recorded with their repeat index, value, z-score, and reason — never
   silently dropped. With fewer than three repeats, rejection is disabled.
 - **Restore guarantee:** defaults are restored in a `finally` block on normal
-  exit and on Ctrl-C.
+  exit, Ctrl-C (SIGINT), and SIGTERM. Every sweep writes `run.log`; an
+  interrupted sweep is marked `status: interrupted` in `run.json`, with the
+  counts accrued so far.
 
 ### Reproducibility checklist
 
@@ -374,7 +394,7 @@ The same comparison of a sweep against itself also returns PASS.
 ### Tests and CI
 
 ```
-43 passed in 5.27s
+45 passed
 TOTAL coverage: 73%
 ```
 

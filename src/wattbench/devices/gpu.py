@@ -101,6 +101,7 @@ class NvmlGpu:
 
     # -- info ------------------------------------------------------------- #
     def info(self) -> dict[str, Any]:
+        """Return device identity and backend information."""
         nv = self._nvml
         driver = nv.nvmlSystemGetDriverVersion()
         if isinstance(driver, bytes):  # pragma: no cover
@@ -123,6 +124,7 @@ class NvmlGpu:
 
     # -- telemetry -------------------------------------------------------- #
     def read_telemetry(self) -> dict[str, Any]:
+        """Read one telemetry sample from the device."""
         nv = self._nvml
         h = self.handle
         ts = time.monotonic_ns()
@@ -162,6 +164,7 @@ class NvmlGpu:
 
     # -- control ---------------------------------------------------------- #
     def supported_power_limit_range(self) -> tuple[float, float]:
+        """Return the enforceable (min, max) board power limit."""
         try:
             lo, hi = self._nvml.nvmlDeviceGetPowerManagementLimitConstraints(self.handle)
             return (lo / 1000.0, hi / 1000.0)
@@ -190,6 +193,7 @@ class NvmlGpu:
         return proc.stdout.strip()
 
     def set_power_limit(self, watts: float) -> float:
+        """Apply a board power limit and return the applied value."""
         lo, hi = self.supported_power_limit_range()
         applied = float(watts)
         if hi > 0:
@@ -206,6 +210,7 @@ class NvmlGpu:
         return applied
 
     def set_locked_clocks(self, min_mhz: int, max_mhz: int) -> None:
+        """Lock graphics clocks to the given range."""
         if min_mhz <= 0 and max_mhz <= 0:
             self.reset_clocks()
             return
@@ -216,6 +221,7 @@ class NvmlGpu:
         self._run_smi(["-lgc", f"{int(min_mhz)},{int(max_mhz)}"])
 
     def reset_clocks(self) -> None:
+        """Release any clock lock and restore defaults."""
         self._run_smi(["-rgc"])
 
     def reset_power_limit(self) -> None:
@@ -361,6 +367,7 @@ class SyntheticGpu:
         return min(1.0, max(0.05, scale))
 
     def current_power_w(self) -> float:
+        """Return the most recently measured power."""
         with self._lock:
             return self._last_power_w
 
@@ -378,11 +385,13 @@ class SyntheticGpu:
             return self._power_at(f_eff, self._util)
 
     def current_clock_mhz(self) -> float:
+        """Return the most recent SM clock in MHz."""
         with self._lock:
             return self._last_sm_mhz
 
     # -- protocol --------------------------------------------------------- #
     def info(self) -> dict[str, Any]:
+        """Return device identity and backend information."""
         return {
             "source": "synthetic",
             "backend": "synthetic",
@@ -401,6 +410,7 @@ class SyntheticGpu:
         }
 
     def read_telemetry(self) -> dict[str, Any]:
+        """Read one telemetry sample from the device."""
         with self._lock:
             f_eff, _ = self._effective_clock()
             util = self._util
@@ -431,6 +441,7 @@ class SyntheticGpu:
             }
 
     def set_power_limit(self, watts: float) -> float:
+        """Apply a board power limit and return the applied value."""
         applied = min(max(float(watts), _PLIM_MIN_W), _PLIM_MAX_W)
         with self._lock:
             self._power_limit_w = applied
@@ -446,6 +457,7 @@ class SyntheticGpu:
         return applied
 
     def set_locked_clocks(self, min_mhz: int, max_mhz: int) -> None:
+        """Lock graphics clocks to the given range."""
         if min_mhz <= 0 and max_mhz <= 0:
             self.reset_clocks()
             return
@@ -458,17 +470,26 @@ class SyntheticGpu:
         logger.info("synthetic GPU clocks locked to %d-%d MHz", lo, hi)
 
     def reset_clocks(self) -> None:
+        """Release any clock lock and restore defaults."""
         with self._lock:
             self._locked = None
         logger.info("synthetic GPU clocks reset to default")
 
+    def locked_clocks(self) -> tuple[int, int] | None:
+        """Return the active synthetic clock lock, if any."""
+        with self._lock:
+            return self._locked
+
     def reset_power_limit(self) -> None:
+        """Restore the driver default board power limit."""
         self.set_power_limit(self._default_power_limit_w)
 
     def supported_power_limit_range(self) -> tuple[float, float]:
+        """Return the enforceable (min, max) board power limit."""
         return (_PLIM_MIN_W, _PLIM_MAX_W)
 
     def temperature_c(self) -> float:
+        """Return the modelled GPU temperature."""
         with self._lock:
             return self._temp_c
 

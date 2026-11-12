@@ -34,6 +34,7 @@ def _utc_now() -> str:
 
 
 def load_run_metadata(run_dir: Path) -> dict[str, Any]:
+    """Load and return the run-level manifest."""
     path = run_dir / "run.json"
     if not path.exists():
         raise AnalysisError(f"{run_dir} is not a run directory (missing run.json)")
@@ -42,6 +43,7 @@ def load_run_metadata(run_dir: Path) -> dict[str, Any]:
 
 
 def discover_cells(run_dir: Path) -> list[Path]:
+    """Return directories of complete, non-corrupt cells."""
     cells_dir = run_dir / "cells"
     if not cells_dir.exists():
         raise AnalysisError(f"no cells/ directory under {run_dir}")

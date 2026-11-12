@@ -30,11 +30,12 @@ class AiInferenceWorkload(Workload):
         super().__init__(**kwargs)
         self.backend = "numpy-cpu"
         self._torch = None
-        self._x = None
+        self._x: Any = None
         self._w: list[Any] = []
         self._checksum = 0.0
 
     def prepare(self, device: Any | None = None) -> None:
+        """Allocate tensors on CUDA when available, else numpy."""
         try:
             import torch
 
@@ -80,6 +81,7 @@ class AiInferenceWorkload(Workload):
         self._checksum += float(y.sum())
 
     def run(self, duration_s: float) -> dict[str, Any]:
+        """Run fixed-shape inferences for the requested duration."""
         if not self._prepared:
             self.prepare()
         start = time.perf_counter()

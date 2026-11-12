@@ -35,6 +35,7 @@ class GamingProxyWorkload(Workload):
         self._checksum = 0.0
 
     def prepare(self, device: Any | None = None) -> None:
+        """Allocate the pixel grid on CUDA when available, else numpy."""
         try:
             import torch
 
@@ -74,6 +75,7 @@ class GamingProxyWorkload(Workload):
         self._checksum += float(np.abs(col).sum())
 
     def run(self, duration_s: float) -> dict[str, Any]:
+        """Run the uncapped shader frame loop for the requested duration."""
         if not self._prepared:
             self.prepare()
         start = time.perf_counter()

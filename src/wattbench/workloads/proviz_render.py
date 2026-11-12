@@ -33,6 +33,7 @@ class ProvizRenderWorkload(Workload):
         self._checksum = 0.0
 
     def prepare(self, device: Any | None = None) -> None:
+        """Allocate the Mandelbrot grid on CUDA when available, else numpy."""
         try:
             import torch
 
@@ -86,6 +87,7 @@ class ProvizRenderWorkload(Workload):
         self._checksum += float(out.sum())
 
     def run(self, duration_s: float) -> dict[str, Any]:
+        """Render fixed-resolution frames for the requested duration."""
         if not self._prepared:
             self.prepare()
         start = time.perf_counter()

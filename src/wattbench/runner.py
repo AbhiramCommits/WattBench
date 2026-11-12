@@ -45,6 +45,7 @@ class SweepError(RuntimeError):
 
 
 def utc_now_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
     return dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
 
 
@@ -167,10 +168,12 @@ class Cell:
 
     @property
     def cell_id(self) -> str:
+        """Stable identifier for this matrix cell."""
         label = "".join(c if c.isalnum() or c in "-_" else "-" for c in self.clock_label)
         return f"{self.workload}__pl{self.power_limit_w:03.0f}__clk-{label}__r{self.repeat_idx}"
 
     def as_dict(self) -> dict[str, Any]:
+        """Return the cell definition as a plain dictionary."""
         return {
             "cell_id": self.cell_id,
             "workload": self.workload,
@@ -224,6 +227,7 @@ class SampleLoop:
         self._thread = threading.Thread(target=self._run, name="nvml-sampler", daemon=True)
 
     def start(self) -> None:
+        """Start the sampler thread."""
         self._thread.start()
 
     def _run(self) -> None:
@@ -241,10 +245,12 @@ class SampleLoop:
                 next_t = time.monotonic()
 
     def stop(self) -> None:
+        """Stop the sampler thread."""
         self._stop.set()
         self._thread.join(timeout=2.0)
 
     def snapshot(self) -> list[dict[str, Any]]:
+        """Return a copy of samples collected so far."""
         with self._lock:
             return list(self.samples)
 
@@ -640,6 +646,18 @@ def sweep(
     if limit is not None:
         cells = cells[:limit]
     total = len(cells)
+    log_handler = logging.FileHandler(run_dir / "run.log", encoding="utf-8")
+    log_handler.setLevel(logging.DEBUG)
+    log_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
+    )
+    wattbench_logger = logging.getLogger("wattbench")
+    previous_level = wattbench_logger.level
+    if wattbench_logger.getEffectiveLevel() > logging.INFO:
+        wattbench_logger.setLevel(logging.INFO)
+    wattbench_logger.addHandler(log_handler)
+    logger.info("run log: %s", run_dir / "run.log")
+
     run_manifest: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "run_id": run_dir.name,
@@ -679,12 +697,14 @@ def sweep(
     completed = skipped = failed = 0
     failures: list[dict[str, str]] = []
     t0 = time.perf_counter()
+    interrupted = False
+    finished_normally = False
     try:
         for idx, cell in enumerate(cells, start=1):
             logger.info("[%d/%d] %s", idx, total, cell.cell_id)
             try:
-                status = run_cell(cell, cfg, gpu, sensor, run_dir, provenance, force=force)
-                if status["status"] == "skipped":
+                cell_status = run_cell(cell, cfg, gpu, sensor, run_dir, provenance, force=force)
+                if cell_status["status"] == "skipped":
                     skipped += 1
                 else:
                     completed += 1
@@ -709,26 +729,51 @@ def sweep(
                     ),
                     encoding="utf-8",
                 )
+        finished_normally = True
+    except KeyboardInterrupt:
+        interrupted = True
+        logger.warning(
+            "SIGINT received: stopping the sweep and restoring default power limit and clocks"
+        )
+        raise
     finally:
         _restore_defaults(gpu, cfg)
+        if interrupted:
+            final_status = "interrupted"
+        elif not finished_normally:
+            final_status = "error"
+        elif failed:
+            final_status = "complete_with_failures"
+        else:
+            final_status = "complete"
+        run_manifest.update(
+            {
+                "status": final_status,
+                "finished_utc": utc_now_iso(),
+                "elapsed_s": round(time.perf_counter() - t0, 3),
+                "counts": {"complete": completed, "skipped": skipped, "failed": failed},
+                "failures": failures,
+            }
+        )
+        try:
+            (run_dir / "run.json").write_text(
+                json.dumps(run_manifest, indent=2), encoding="utf-8"
+            )
+        except OSError as exc:  # pragma: no cover - disk full
+            logger.error("could not write run.json: %s", exc)
+        logger.info(
+            "sweep finished: %d complete, %d skipped, %d failed in %.1fs (status=%s)",
+            completed,
+            skipped,
+            failed,
+            time.perf_counter() - t0,
+            final_status,
+        )
+        wattbench_logger.removeHandler(log_handler)
+        log_handler.close()
+        wattbench_logger.setLevel(previous_level)
+        logger.info("closed run log")
 
-    run_manifest.update(
-        {
-            "status": "complete" if failed == 0 else "complete_with_failures",
-            "finished_utc": utc_now_iso(),
-            "elapsed_s": round(time.perf_counter() - t0, 3),
-            "counts": {"complete": completed, "skipped": skipped, "failed": failed},
-            "failures": failures,
-        }
-    )
-    (run_dir / "run.json").write_text(json.dumps(run_manifest, indent=2), encoding="utf-8")
-    logger.info(
-        "sweep finished: %d complete, %d skipped, %d failed in %.1fs",
-        completed,
-        skipped,
-        failed,
-        time.perf_counter() - t0,
-    )
     return run_manifest
 
 
@@ -771,6 +816,7 @@ def prune_raw_csvs(run_dir: str | Path, keep: int = 1, max_bytes: int = 2_000_00
 
 
 def sha256_file(path: str | Path) -> str:
+    """SHA-256 digest of a file, used for artifact manifests."""
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
@@ -779,6 +825,7 @@ def sha256_file(path: str | Path) -> str:
 
 
 def find_nvidia_smi() -> str | None:
+    """Return the nvidia-smi path if present on this machine."""
     return shutil.which("nvidia-smi")
 
 

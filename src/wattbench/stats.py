@@ -57,7 +57,7 @@ def t_critical(df: int, confidence: float = 0.95) -> float:
     return _T95[lo] + frac * (_T95[hi] - _T95[lo])
 
 
-def metric_stats(values: list[float] | np.ndarray) -> dict[str, float | int]:
+def metric_stats(values: list[float | None] | np.ndarray) -> dict[str, float | int]:
     """Mean, median, sample stdev, CV, and 95% CI on the mean."""
     arr = np.asarray([v for v in values if v is not None and np.isfinite(v)], dtype=np.float64)
     n = len(arr)

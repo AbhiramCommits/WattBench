@@ -39,6 +39,7 @@ class SensorSample:
     power_w: float
 
     def as_tuple(self) -> tuple[int, float, float, float]:
+        """Return the sample as a plain tuple."""
         return (self.timestamp_ns, self.bus_voltage_v, self.current_a, self.power_w)
 
 
@@ -132,6 +133,7 @@ class SerialIna219Sensor:
         self._read_errors = 0
 
     def info(self) -> dict[str, Any]:
+        """Return backend identity and port settings."""
         return {
             "source": "hardware",
             "backend": "serial-ina219",
@@ -160,6 +162,7 @@ class SerialIna219Sensor:
         logger.info("opened INA219 serial sensor on %s @ %d baud", self.port, self.baud)
 
     def start(self) -> None:
+        """Start acquiring samples."""
         if self._serial is None:
             self.open()
         with self._lock:
@@ -206,6 +209,7 @@ class SerialIna219Sensor:
                 self._samples.append((host_ns, bus_v, current_a, power_w))
 
     def stop(self) -> None:
+        """Stop acquiring samples and release the port."""
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
@@ -223,11 +227,13 @@ class SerialIna219Sensor:
         )
 
     def samples(self) -> list[tuple[int, float, float, float]]:
+        """Return captured (timestamp_ns, bus_v, current_a, power_w) samples."""
         with self._lock:
             return list(self._samples)
 
     @property
     def bad_lines(self) -> int:
+        """Number of malformed serial records skipped."""
         return self._bad_lines
 
 
@@ -268,6 +274,7 @@ class SyntheticIna219Sensor:
         self._t0_host_ns = 0
 
     def info(self) -> dict[str, Any]:
+        """Return backend identity and port settings."""
         return {
             "source": "synthetic",
             "backend": "synthetic-ina219",
@@ -279,6 +286,7 @@ class SyntheticIna219Sensor:
         }
 
     def start(self) -> None:
+        """Start acquiring samples."""
         with self._lock:
             self._samples.clear()
         self._stop.clear()
@@ -306,6 +314,7 @@ class SyntheticIna219Sensor:
             self._stop.wait(interval)
 
     def stop(self) -> None:
+        """Stop acquiring samples and release the port."""
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
@@ -313,6 +322,7 @@ class SyntheticIna219Sensor:
         logger.info("synthetic INA219 stopped: %d samples", len(self._samples))
 
     def samples(self) -> list[tuple[int, float, float, float]]:
+        """Return captured (timestamp_ns, bus_v, current_a, power_w) samples."""
         with self._lock:
             return list(self._samples)
 

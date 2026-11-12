@@ -29,6 +29,9 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Type check core
+        run: mypy src/wattbench
+
       - name: Unit and integration tests with coverage
         run: pytest -q --cov=wattbench --cov-report=term --cov-report=xml
 
