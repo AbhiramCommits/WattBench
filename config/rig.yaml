@@ -1,0 +1,52 @@
+# WattBench rig configuration.
+# Every number here is copied into the run manifest and hashed into config_hash.
+run:
+  name: phoenix-sweep
+  seed: 20261112
+  out_dir: runs
+
+sampling:
+  gpu_hz: 20            # NVML telemetry rate during soak/baseline/measurement
+  sensor_hz: 50         # external INA219 rate (firmware is configured separately)
+  align_grid_hz: 20     # common grid for cross-correlation alignment
+  bias_threshold_pct: 5.0
+
+gpu:
+  mode: auto            # auto | hardware | synthetic
+  index: 0
+  seed: 42
+  default_power_limit_w: 250
+
+sensor:
+  mode: auto            # auto | hardware | synthetic
+  port: /dev/ttyUSB0
+  baud: 115200
+  shunt_ohms: 0.005     # 5 mΩ Kelvin shunt on the 12 V rail
+  units: mv             # third CSV field: shunt millivolts ("mv") or amps ("a")
+  sample_rate_hz: 50
+  seed: 7
+
+sweep:
+  power_limits_w: [90, 140, 190, 240]
+  clock_points:
+    - {min_mhz: 0, max_mhz: 0, label: unlocked}
+    - {min_mhz: 1700, max_mhz: 1700, label: locked-1700}
+  repeats: 2
+  soak_seconds: 2.5
+  soak_timeout_s: 6.0
+  soak_slope_c_per_s: 0.05
+  idle_baseline_seconds: 1.2
+  measure_seconds: 4.0
+  randomized: true
+  outlier_z: 3.5
+  settle_seconds: 0.25
+
+analysis:
+  knee_marginal_fraction: 0.25
+  regression_z: 3.0
+  regression_rel_tol: 0.03
+
+workloads:
+  - {name: ai_inference, domain: ai, duration_s: 4.0}
+  - {name: proviz_render, domain: proviz, duration_s: 4.0}
+  - {name: gaming_proxy, domain: gaming, duration_s: 4.0}
