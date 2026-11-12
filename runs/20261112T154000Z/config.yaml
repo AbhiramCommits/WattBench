@@ -1,0 +1,58 @@
+run:
+  name: phoenix-sweep
+  seed: 20261112
+  out_dir: runs
+sampling:
+  gpu_hz: 20
+  sensor_hz: 50
+  align_grid_hz: 20
+  bias_threshold_pct: 5.0
+gpu:
+  mode: auto
+  index: 0
+  seed: 42
+  default_power_limit_w: 250
+sensor:
+  mode: auto
+  port: /dev/ttyUSB0
+  baud: 115200
+  shunt_ohms: 0.005
+  units: mv
+  sample_rate_hz: 50
+  seed: 7
+sweep:
+  power_limits_w:
+  - 90
+  - 140
+  - 190
+  - 240
+  clock_points:
+  - min_mhz: 0
+    max_mhz: 0
+    label: unlocked
+  - min_mhz: 1700
+    max_mhz: 1700
+    label: locked-1700
+  repeats: 2
+  soak_seconds: 1.8
+  soak_timeout_s: 2.8
+  soak_slope_c_per_s: 0.05
+  idle_baseline_seconds: 1.0
+  measure_seconds: 3.5
+  randomized: true
+  outlier_z: 3.5
+  settle_seconds: 0.25
+analysis:
+  knee_marginal_fraction: 0.25
+  regression_z: 3.0
+  regression_rel_tol: 0.03
+workloads:
+- name: ai_inference
+  domain: ai
+  duration_s: 3.5
+- name: proviz_render
+  domain: proviz
+  duration_s: 3.5
+- name: gaming_proxy
+  domain: gaming
+  duration_s: 3.5

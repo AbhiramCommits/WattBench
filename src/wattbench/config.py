@@ -70,11 +70,11 @@ class SweepSection:
         default_factory=lambda: [ClockPoint(0, 0, "unlocked"), ClockPoint(1700, 1700, "locked-1700")]
     )
     repeats: int = 2
-    soak_seconds: float = 2.5
-    soak_timeout_s: float = 6.0
+    soak_seconds: float = 1.8
+    soak_timeout_s: float = 2.8
     soak_slope_c_per_s: float = 0.05
-    idle_baseline_seconds: float = 1.2
-    measure_seconds: float = 4.0
+    idle_baseline_seconds: float = 1.0
+    measure_seconds: float = 3.5
     randomized: bool = True
     outlier_z: float = 3.5
     settle_seconds: float = 0.25
@@ -97,9 +97,9 @@ class RigConfig:
     analysis: AnalysisSection = field(default_factory=AnalysisSection)
     workloads: list[WorkloadSection] = field(
         default_factory=lambda: [
-            WorkloadSection("ai_inference", "ai", 4.0),
-            WorkloadSection("proviz_render", "proviz", 4.0),
-            WorkloadSection("gaming_proxy", "gaming", 4.0),
+            WorkloadSection("ai_inference", "ai", 3.5),
+            WorkloadSection("proviz_render", "proviz", 3.5),
+            WorkloadSection("gaming_proxy", "gaming", 3.5),
         ]
     )
 

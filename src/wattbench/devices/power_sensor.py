@@ -162,6 +162,10 @@ class SerialIna219Sensor:
     def start(self) -> None:
         if self._serial is None:
             self.open()
+        with self._lock:
+            self._samples.clear()
+        self._first_host_ns = None
+        self._first_mcu_ms = None
         self._stop.clear()
         self._thread = threading.Thread(target=self._read_loop, name="ina219-reader", daemon=True)
         self._thread.start()
@@ -275,6 +279,8 @@ class SyntheticIna219Sensor:
         }
 
     def start(self) -> None:
+        with self._lock:
+            self._samples.clear()
         self._stop.clear()
         self._t0_host_ns = time.monotonic_ns()
         self._thread = threading.Thread(target=self._sample_loop, name="synthetic-ina219", daemon=True)

@@ -32,11 +32,11 @@ sweep:
     - {min_mhz: 0, max_mhz: 0, label: unlocked}
     - {min_mhz: 1700, max_mhz: 1700, label: locked-1700}
   repeats: 2
-  soak_seconds: 2.5
-  soak_timeout_s: 6.0
+  soak_seconds: 1.8
+  soak_timeout_s: 2.8
   soak_slope_c_per_s: 0.05
-  idle_baseline_seconds: 1.2
-  measure_seconds: 4.0
+  idle_baseline_seconds: 1.0
+  measure_seconds: 3.5
   randomized: true
   outlier_z: 3.5
   settle_seconds: 0.25
@@ -47,6 +47,6 @@ analysis:
   regression_rel_tol: 0.03
 
 workloads:
-  - {name: ai_inference, domain: ai, duration_s: 4.0}
-  - {name: proviz_render, domain: proviz, duration_s: 4.0}
-  - {name: gaming_proxy, domain: gaming, duration_s: 4.0}
+  - {name: ai_inference, domain: ai, duration_s: 3.5}
+  - {name: proviz_render, domain: proviz, duration_s: 3.5}
+  - {name: gaming_proxy, domain: gaming, duration_s: 3.5}
