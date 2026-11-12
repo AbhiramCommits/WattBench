@@ -364,6 +364,19 @@ class SyntheticGpu:
         with self._lock:
             return self._last_power_w
 
+    def instant_power_w(self) -> float:
+        """Modelled board power *now*, without waiting for the next NVML read.
+
+        The external sensor observes the rail continuously, so coupling it to
+        the last 20 Hz telemetry value would add up to a sample of latency at
+        every transition.  This is the physical value the shunt would see.
+        """
+        with self._lock:
+            if self._domain == "idle":
+                return _STATIC_W
+            f_eff, _ = self._effective_clock()
+            return self._power_at(f_eff, self._util)
+
     def current_clock_mhz(self) -> float:
         with self._lock:
             return self._last_sm_mhz

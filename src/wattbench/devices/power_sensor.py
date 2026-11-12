@@ -293,7 +293,10 @@ class SyntheticIna219Sensor:
             now = time.monotonic_ns()
             # Sensor clock: starts with a fixed skew and runs at (1 + drift).
             sensor_ns = int(t0 + (now - t0) * (1.0 + self.drift_ppm * 1e-6) + self.offset_ms * 1e6)
-            true_power = float(self.gpu.current_power_w())
+            if hasattr(self.gpu, "instant_power_w"):
+                true_power = float(self.gpu.instant_power_w())
+            else:
+                true_power = float(self.gpu.current_power_w())
             bus_v = self.bus_voltage_v + self._rng.gauss(0.0, 0.006)
             current = (true_power / self.bus_voltage_v) * self.gain + self.current_offset_a
             current += self._rng.gauss(0.0, 0.004)
