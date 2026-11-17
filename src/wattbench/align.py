@@ -213,12 +213,12 @@ def validate_pair(
     )
     t_ref_all = np.asarray(t_nvml_ns) / 1e9
     p_ref_all = np.asarray(p_nvml)
-    t_sig_all = aligned / 1e9
+    t_sig_all = np.asarray(aligned, dtype=np.float64) / 1e9
     p_sig_all = np.asarray(p_sensor)
     # Full-trace agreement: includes soak and baseline transitions, so it
     # measures whether the streams track at all, not just steady-state noise.
-    f0 = max(t_ref_all.min(), t_sig_all.min())
-    f1 = min(t_ref_all.max(), t_sig_all.max())
+    f0 = max(float(np.min(t_ref_all)), float(np.min(t_sig_all)))
+    f1 = min(float(np.max(t_ref_all)), float(np.max(t_sig_all)))
     if f1 > f0:
         grid_full = np.linspace(f0, f1, max(int((f1 - f0) * grid_hz) + 1, 10))
         pearson_full = _pearson(
